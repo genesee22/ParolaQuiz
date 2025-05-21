@@ -33,7 +33,7 @@ export const register = async (req, res) => {
             from: process.env.EMAIL_SENDER,
             to: email,
             subject: 'Welcome to ParolaQuiz!',
-            text: `Your account has been created successfully. We're excited to have you on board and can't wait to see how you do!`,
+            text: `Your account has been created successfully!`,
         };
 
         await transporter.sendMail(mailOptions);
@@ -98,17 +98,18 @@ export const logout = async (req, res) => {
 };
 
 export const sendVerifyOtp = async (req, res) => {
-    try {
-        const { userId } = req.body;
-        if (!userId) {
-            return res.status(400).json({ success: false, message: 'User ID is required.' });
-        }
+    const { userId } = req.body;
 
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    try {
         const user = await userModel.findById(userId);
+        
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
-
         if (user.isAccountVerified) {
             return res.status(400).json({ success: false, message: 'Account is already verified.' });
         }
