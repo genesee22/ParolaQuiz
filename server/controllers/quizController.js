@@ -1,7 +1,8 @@
 import quizModel from '../models/quizModel.js';
 import vocabModel from '../models/vocabModel.js';
+import { deleteQuizChat, getQuizChat } from '../services/geminiService.js';
 
-export const addWord = async (words, userId, quizId) => {
+export const addWords = async (words, userId, quizId) => {
     if (words && Array.isArray(words)) {
 
         for (const word of words) {
@@ -40,35 +41,39 @@ export const createQuiz = async (req, res) => {
     }
 
     try {
+        let chat = await getQuizChat(userId);
+        
+        const isOverloaded = chat.history.length > 101;
+        if (isOverloaded) {
+            deleteQuizChat(userId);
+            chat = await getQuizChat(userId);
+        }
+        
+        let generatedQuiz = await chat.sendMessage({
+            message: `${userInput.language} ${userInput.languageLevel} ${userInput.type}${userInput.questions ? ' (' + userInput.questions + ' questions)' : ''}: ${userInput.data}`
+        });
+        generatedQuiz = JSON.parse(generatedQuiz.text);
+
         const quiz = new quizModel({
             userId: userId,
-            title: 'Test Quiz',
-            questions: [{
-                question: 'Test question',
-                options: ['Test answer'],       
-                correctAnswer: 'Test answer',
-            }],
+            type: userInput.type,
+            title: generatedQuiz.title,
+            questions: generatedQuiz.questions,
         });
 
-        await quiz.save(); 
+        if (quiz.title === '') quiz.title = quiz.createdAt.toLocaleString();
 
-        if (userInput.type === 'vocabulary') {
-            await addWord(userInput.data, userId, quiz._id);
-            const words = await vocabModel.find({ quizIds: quiz._id });
-
-            return res.status(201).json({ 
-                success: true, 
-                message: 'Quiz successfully created with words added to vocabulary.', quiz, words 
-            });
-        }
+        await quiz.save();
 
         return res.status(201).json({ 
             success: true, 
-            message: 'Quiz successfully created.', quiz 
+            message: 'Quiz successfully created.', 
+            quiz: quiz,
+            chatHistory: chat.history
         });
 
     } catch (error) {
-        console.error('Error while creating quiz:', error);
+        console.error('Error while creating quiz:', error);        
         return res.status(500).json({ success: false, message: 'Internal server error while creating quiz: ' + error.message });
     }
 };

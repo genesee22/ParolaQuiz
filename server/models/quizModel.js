@@ -6,6 +6,7 @@ const quizSchema = new mongoose.Schema({
         ref: 'user',
         required: true
     },
+    type: { type: String, required: true },
     title: String,
     questions: [{ question: String, options: [String], correctAnswer: String }],
     createdAt: { type: Date, default: Date.now },
