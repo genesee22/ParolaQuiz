@@ -1,24 +1,22 @@
 import jwt from "jsonwebtoken";
 
-const userAuth = async (req, res, next) => {
-    const { token } = req.cookies;
+const userAuth = (req, res, next) => {
+    const accessToken = req.cookies?.accessToken;
 
-    if (!token) {
-        return res.status(401).json({ success: false, message: 'Not authorized. Login again.'});
+    if (!accessToken) {
+        return res.status(401).json({ success: false, message: 'Access token not provided. Login again.' });
     }
 
     try {
-        const tokenDecode = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
-        if (tokenDecode.id) req.body.userId = tokenDecode.id;
-        else return res.status(401).json({ success: false, message: 'Not authorized. Login again.'});
+        const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECET);
+        req.body.userId = decoded.id;
 
         next();
-        
+
     } catch (error) {
-        console.error('Error checking token:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error while checking token.' });
+        console.error('Access token verification failed:', error);
+        return res.status(403).json({ success: false, message: 'Invalid or expired access token.' });
     }
-}
+};
 
 export default userAuth;
