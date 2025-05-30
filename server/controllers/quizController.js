@@ -1,34 +1,31 @@
 import quizModel from '../models/quizModel.js';
 import vocabModel from '../models/vocabModel.js';
-import { deleteQuizChat, getQuizChat } from '../services/geminiService.js';
+import { deleteQuizChat, deleteVocabChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
 
-export const addWords = async (words, userId, quizId) => {
-    if (words && Array.isArray(words)) {
+export const addToVocabulary = async (words, userId, quizId=null) => {
+    for (const word of words) {
+        const existingWord = await vocabModel.findOne({ userId: userId, word: word.word })
 
-        for (const word of words) {
-            try {
-                const existVocabItem = await vocabModel.findOne({ userId: userId, word: word })
+        if (existingWord && !existingWord.quizIds.includes(quizId)) {
+            existingWord.quizIds.push(quizId);
+            await existingWord.save();
 
-                if (existVocabItem && !existVocabItem.quizIds.includes(quizId)) {
-                    existVocabItem.quizIds.push(quizId);
-                    await existVocabItem.save();
-                }
-                else {
-                    const newVocabItem = new vocabModel({  
-                        userId: userId,
-                        word: word,
-                        quizIds: [quizId]
-                    });
-                    await newVocabItem.save();
-                }
+        } else {
+            const newWord = new vocabModel({  
+                userId: userId,
+                word: word.word,
+                language: word.language,
+                languageLevel: word.languageLevel,
+                category: word.category,
+                definition: word.definition,
+            });
 
-            } catch (error) {
-                console.error('Error while adding new word:', error.message);
-            }
+            if (quizId !== null) newWord.quizIds.push(quizId);
 
+            await newWord.save();
         }
     }
-};
+}
 
 export const createQuiz = async (req, res) => {
     const { userId, userInput } = req.body;
@@ -41,16 +38,16 @@ export const createQuiz = async (req, res) => {
     }
 
     try {
-        let chat = await getQuizChat(userId);
+        let quizChat = await getQuizChat(userId);
         
-        const isOverloaded = chat.history.length > 101;
+        let isOverloaded = quizChat.history.length > 101;
         if (isOverloaded) {
             deleteQuizChat(userId);
-            chat = await getQuizChat(userId);
+            quizChat = await getQuizChat(userId);
         }
         
-        let generatedQuiz = await chat.sendMessage({
-            message: `${userInput.language} ${userInput.languageLevel} ${userInput.type}${userInput.questions ? ' (' + userInput.questions + ' questions)' : ''}: ${userInput.data}`
+        let generatedQuiz = await quizChat.sendMessage({
+            message: `${userInput.language} ${userInput.type}, ${userInput.difficulty} difficulty, ${userInput.style} style${userInput.questions ? `, ${userInput.questions} questions` : ''}: ${userInput.data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
 
@@ -65,11 +62,34 @@ export const createQuiz = async (req, res) => {
 
         await quiz.save();
 
+        if (userInput.type === 'vocabulary') {
+            let vocabChat = await getVocabChat(userId);
+
+            isOverloaded = vocabChat.history.length > 101;
+            if (isOverloaded) {
+                deleteVocabChat(userId);
+                vocabChat = await getVocabChat(userId);
+            }
+        
+            let processedWords = await vocabChat.sendMessage({ message: userInput.data });
+            processedWords = JSON.parse(processedWords.text);
+
+            addToVocabulary(processedWords, userId, quiz._id);
+
+            return res.status(201).json({ 
+                success: true, 
+                message: 'Quiz successfully created.', 
+                quiz: quiz,
+                quizChat: quizChat.history,
+                vocabularyChat: vocabChat.history
+            });
+        }
+        
         return res.status(201).json({ 
             success: true, 
             message: 'Quiz successfully created.', 
             quiz: quiz,
-            chatHistory: chat.history
+            quizChat: quizChat.history
         });
 
     } catch (error) {

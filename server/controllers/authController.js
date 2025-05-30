@@ -30,8 +30,8 @@ export const register = async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECET, { expiresIn: '1d' });
-        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECET, { expiresIn: '5m' });
+        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '1d' });
+        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5m' });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -76,8 +76,8 @@ export const login = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid password.' });
         }
 
-        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECET, { expiresIn: '1d' });
-        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECET, { expiresIn: '5m' });
+        const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '1d' });
+        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5m' });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -112,16 +112,15 @@ export const refresh = async (req, res) => {
         return res.status(401).json({ success: false, message: 'Unauthorized. Please login again.' });
 
     try {
-        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECET);
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
         const user = await userModel.findById(decoded.id);
-        if (!user)
-        return res.status(401).json({ success: false, message: 'Unauthorized. Please login again.' });
+        if (!user) return res.status(401).json({ success: false, message: 'Unauthorized. Please login again.' });
 
         const accessToken = jwt.sign(
             { id: user._id, username: user.name, email: user.email },
-            process.env.ACCESS_TOKEN_SECET,
-            { expiresIn: '10s' }
+            process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: '5m' }
         );
 
         res.cookie('accessToken', accessToken, {
@@ -134,7 +133,7 @@ export const refresh = async (req, res) => {
         res.json({ accessToken });
         
     } catch (error) {
-        return res.status(403).json({ success: false, message: 'Forbidden.' });
+        return res.status(403).json({ success: false, message: `Forbidden: ${error.message}` });
     }
 };
 

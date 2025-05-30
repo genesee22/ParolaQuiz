@@ -12,6 +12,7 @@ const vocabSchema = new mongoose.Schema({
         required: false,
     }],
     word: { type: String, required: true },
+    language: { type: String, default: '' },
     languageLevel: { type: String, default: '' },
     category: { type: String, default: '' },
     definition: { type: String },
@@ -26,6 +27,6 @@ vocabSchema.pre('save', function (next) {
     next();
 });
 
-const vocabModel = mongoose.models.vocabulary || mongoose.model('vocabulary', vocabSchema);
+const vocabModel = mongoose.models.vocabulary || mongoose.model('words', vocabSchema);
 
 export default vocabModel;

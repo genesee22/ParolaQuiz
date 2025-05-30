@@ -1,8 +1,10 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+
 import 'dotenv/config';
 import connectDB from './config/mongodb.js';
+
 import authRouter from './routes/authRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import quizRouter from './routes/quizRoutes.js';
