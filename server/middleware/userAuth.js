@@ -3,11 +3,13 @@ import jwt from "jsonwebtoken";
 const userAuth = (req, res, next) => {
     const accessToken = req.cookies?.accessToken;
 
-    if (!accessToken) return res.status(401).json({ success: false, message: 'Access token is expired. Please, login again.' });
+    if (!accessToken) {
+        return res.status(401).json({ success: false, message: 'Access token is expired. Please, login again.' });
+    }
 
     try {
-        const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-        req.body.userId = decoded.id;
+        const tokenDecode = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+        req.body.userId = tokenDecode.id;
 
         next();
 

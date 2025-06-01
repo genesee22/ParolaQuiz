@@ -1,11 +1,12 @@
 import express from 'express';
 import userAuth from '../middleware/userAuth.js';
-import { addWord, removeWord, updateWrord } from '../controllers/vocabController.js';
+import { addWord, removeWord, updateWrord, addAiFieldWords } from '../controllers/vocabController.js';
 
 const vocabRouter = express.Router();
 
 vocabRouter.post('/', userAuth, addWord);
-vocabRouter.delete('/:id', userAuth, removeWord);
+vocabRouter.post('/ai', userAuth, addAiFieldWords);
 vocabRouter.put('/:id', userAuth, updateWrord);
+vocabRouter.delete('/:id', userAuth, removeWord);
 
 export default vocabRouter;

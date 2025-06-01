@@ -1,4 +1,5 @@
 import vocabModel from "../models/vocabModel.js";
+import { getVocabChat } from "../services/geminiService.js";
 
 export const addWord = async (req, res) => {
     const { userId, newWord } = req.body;
@@ -85,12 +86,74 @@ export const updateWrord = async (req, res) => {
         word.exampleSentence = newData.exampleSentence;
         word.notes = newData.notes;
 
-        word.save();
+        await word.save();
 
         return res.status(200).json({ success: true, message: 'Word updated successfully.', word});
 
     } catch (error) {
         console.error('Error while updating word:', error);
         return res.status(500).json({ success: false, message: 'Internal server error while updating word: ' + error.message });
+    }
+};
+
+export const addWords = async (words, userId, quizId) => {
+    for (const word of words) {
+        const existingWord = await vocabModel.findOne({ userId: userId, word: word.word })
+
+        if (existingWord && !existingWord.quizIds.includes(quizId)) {
+            existingWord.quizIds.push(quizId);
+            await existingWord.save();
+
+        } else {
+            const newWord = new vocabModel({  
+                userId: userId,
+                word: word.word,
+                language: word.language,
+                languageLevel: word.languageLevel,
+                category: word.category,
+                definition: word.definition,
+            });
+
+            if (quizId) newWord.quizIds.push(quizId);
+
+            await newWord.save();
+        }
+    }
+}
+
+export const addAiFieldWords = async (req, res) => {
+    const { userId, newWords } = req.body;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!newWords) {
+        return res.status(400).json({ success: false, message: 'New words are required.' });
+    }
+
+    try {
+        let vocabChat = await getVocabChat(userId);
+        
+        let isOverloaded = vocabChat.history.length > 101;
+        if (isOverloaded) {
+            deleteVocabChat(userId);
+            vocabChat = await getVocabChat(userId);
+        }
+
+        let fieldWords = await vocabChat.sendMessage({ message: newWords });
+        fieldWords = JSON.parse(fieldWords.text);
+
+        await addWords(fieldWords, userId);
+
+        return res.status(201).json({ 
+            success: true, 
+            message: 'AI field words added successfully.',
+            aiFieldWords: fieldWords, 
+            vocabularyChat: vocabChat.history
+        });
+
+    } catch (error) {
+        console.error('Error while adding AI field words:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while adding AI field words: ' + error.message });
     }
 };

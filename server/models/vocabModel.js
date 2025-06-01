@@ -18,6 +18,7 @@ const vocabSchema = new mongoose.Schema({
     definition: { type: String },
     exampleSentence: { type: String },
     notes: { type: String },
+    knowledge: { type: String, default: 'Added' },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
 });
