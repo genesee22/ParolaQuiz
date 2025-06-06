@@ -1,35 +1,110 @@
 import quizModel from '../models/quizModel.js';
 import vocabModel from '../models/vocabModel.js';
-import { deleteQuizChat, deleteVocabChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
+import { deleteImgQuizChat, deleteQuizChat, deleteVocabChat, getImgQuizChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
 import { addWords } from './vocabController.js';
 
-export const createQuiz = async (req, res) => {
-    const { userId, userInput } = req.body;
+const addAiFieldWords = async (userId, quizId, language, words) => {
+    let vocabChat = await getVocabChat(userId);
+
+    let isOverloaded = vocabChat.history.length > 3;
+    if (isOverloaded) {
+        deleteVocabChat(userId);
+        vocabChat = await getVocabChat(userId);
+    }
+
+    let fieldWords = await vocabChat.sendMessage({ 
+        message: `${language} words: ${words}`
+    });
+
+    fieldWords = JSON.parse(fieldWords.text);
+
+    addWords(fieldWords, userId, quizId);
+};
+
+export const getQuizzes = async (req, res) => {
+    const { userId, filter } = req.body;
 
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
     }
-    if (!userInput) {
-        return res.status(400).json({ success: false, message: 'User input with type and data is required.' });
+
+    try {
+        const query = { userId };
+
+        if (filter?.title) query.title = filter.title;
+        if (filter?.type) query.type = filter.type;
+        if (filter?.date) query.createdAt = filter.date;
+
+        const quizzes = await quizModel.find(query);
+
+        if (quizzes.length === 0) {
+            return res.status(200).json({ success: true, quizzes: [], message: 'No quizzes found.' });
+        }
+
+        return res.status(200).json({ success: true, quizzes });
+
+    } catch (error) {
+        console.error('Error while removing quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while removing quiz: ' + error.message });
+    }
+};
+
+export const getQuizById = async (req, res) => {
+    const { userId } = req.body;
+    const quizId = req.params.id;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    try {
+        const quiz = await quizModel.findById(quizId);
+
+        if (!quiz) {
+            return res.status(404).json({ success: false, message: 'Quiz not found.' });
+        }
+
+        return res.status(200).json({ 
+            success: true, 
+            quiz: quiz
+        });
+        
+    } catch (error) {
+        console.error('Error geting quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error geting quiz: ' + error.message });
+    }
+};
+
+export const createQuiz = async (req, res) => {
+    const { userId, settings, data } = req.body;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!settings) {
+        return res.status(400).json({ success: false, message: 'Settings are required.' });
+    }
+    if (!data) {
+        return res.status(400).json({ success: false, message: 'Data is required.' });
     }
 
     try {
         let quizChat = await getQuizChat(userId);
         
-        let isOverloaded = quizChat.history.length > 101;
+        let isOverloaded = quizChat.history.length > 3;
         if (isOverloaded) {
             deleteQuizChat(userId);
             quizChat = await getQuizChat(userId);
         }
         
         let generatedQuiz = await quizChat.sendMessage({
-            message: `${userInput.language} ${userInput.type}, ${userInput.difficulty} difficulty, ${userInput.style} style${userInput.questions ? `, ${userInput.questions} questions` : ''}: ${userInput.data}`
+            message: `${settings.language} ${settings.type}, ${settings.languageLevel} level, ${settings.style} style${settings.questions ? `, ${settings.questions} questions` : ''}: ${data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
 
         const quiz = new quizModel({
             userId: userId,
-            type: userInput.type,
+            type: settings.type,
             title: generatedQuiz.title,
             questions: generatedQuiz.questions,
         });
@@ -38,27 +113,8 @@ export const createQuiz = async (req, res) => {
 
         await quiz.save();
 
-        if (userInput.type === 'vocabulary') {
-            let vocabChat = await getVocabChat(userId);
-
-            isOverloaded = vocabChat.history.length > 101;
-            if (isOverloaded) {
-                deleteVocabChat(userId);
-                vocabChat = await getVocabChat(userId);
-            }
-
-            let fieldWords = await vocabChat.sendMessage({ message: userInput.data });
-            fieldWords = JSON.parse(fieldWords.text);
-
-            addWords(fieldWords, userId, quiz._id);
-
-            return res.status(201).json({ 
-                success: true, 
-                message: 'Quiz successfully created.', 
-                quiz: quiz,
-                quizChat: quizChat.history,
-                vocabularyChat: vocabChat.history
-            });
+        if (settings.type === 'vocabulary') {
+            addAiFieldWords(userId, quiz._id, settings.language, data);
         }
         
         return res.status(201).json({ 
@@ -71,6 +127,61 @@ export const createQuiz = async (req, res) => {
     } catch (error) {
         console.error('Error while creating quiz:', error);        
         return res.status(500).json({ success: false, message: 'Internal server error while creating quiz: ' + error.message });
+    }
+};
+
+export const createImgQuiz = async (req, res) => {
+    const { userId, settings, data } = req.body;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!settings) {
+        return res.status(400).json({ success: false, message: 'Settings are required.' });
+    }
+    if (!data) {
+        return res.status(400).json({ success: false, message: 'Data is required.' });
+    }
+
+    try {
+        let quizChat = await getImgQuizChat(userId);
+        
+        let isOverloaded = quizChat.history.length > 3;
+        if (isOverloaded) {
+            deleteImgQuizChat(userId);
+            quizChat = await getImgQuizChat(userId);
+        }
+        
+        let generatedQuiz = await quizChat.sendMessage({
+            message: `${settings.language} words: ${data}`
+        });
+        generatedQuiz = JSON.parse(generatedQuiz.text);
+
+        const quiz = new quizModel({
+            userId: userId,
+            type: 'image',
+            title: generatedQuiz.title,
+            questions: generatedQuiz.questions,
+        });
+
+        if (quiz.title === '') quiz.title = quiz.createdAt.toLocaleString();
+
+        await quiz.save();
+        
+        if (settings.type === 'vocabulary') {
+            addAiFieldWords(userId, settings.language, data);
+        }
+
+        return res.status(201).json({ 
+            success: true, 
+            message: 'Image based quiz successfully created.', 
+            quiz: quiz,
+            quizChat: quizChat.history
+        });
+
+    } catch (error) {
+        console.error('Error while creating image based quiz:', error);        
+        return res.status(500).json({ success: false, message: 'Internal server error while creating image based quiz: ' + error.message });
     }
 };
 
@@ -101,7 +212,11 @@ export const removeQuiz = async (req, res) => {
             { $pull: { quizIds: quizId } }
         );
 
-        return res.status(200).json({ success: true, message: 'Quiz removed successfully.', 'Vocabulary words with removed quizId:': quizWords });
+        return res.status(200).json({ 
+            success: true, 
+            message: 'Quiz removed successfully.', 
+            'Vocabulary words with removed quizId:': quizWords 
+        });
         
     } catch (error) {
         console.error('Error while removing quiz:', error);
@@ -110,13 +225,13 @@ export const removeQuiz = async (req, res) => {
 };
 
 export const updateQuiz = async (req, res) => {
-    const { userId, newData } = req.body;
+    const { userId, data } = req.body;
     const quizId = req.params.id;
 
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
     }
-    if (!newData) {
+    if (!data) {
         return res.status(400).json({ success: false, message: 'New data is required.' });
     }
 
@@ -127,8 +242,8 @@ export const updateQuiz = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
 
-        if (newData.title) quiz.title = newData.title;
-        if (newData.questions) quiz.questions = newData.questions;
+        if (data.title) quiz.title = data.title;
+        if (data.questions) quiz.questions = data.questions;
 
         await quiz.save();
 
@@ -185,18 +300,78 @@ export const saveAnswers = async (req, res) => {
         });
         
         quiz.userAnswers = answers;
+        quiz.timesCompleted++;
 
         await quiz.save();
 
         return res.status(200).json({ 
-            success: true, 
-            message: 'Answers saved successfully.', 
-            correctAnswers: totalCorrect, 
+            success: true,
+            message: 'Answers saved successfully.',
+            correctAnswers: totalCorrect,
             questions: quiz.questions.length,
         });
         
     } catch (error) {
         console.error('Error while saving answers:', error);
         return res.status(500).json({ success: false, message: 'Internal server error while saving answers: ' + error.message });
+    }
+};
+
+export const shareQuiz = async (req, res) => {
+    const { userId } = req.body;
+    const quizId = req.params.id;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    try {
+        const quiz = await quizModel.findById(quizId);
+
+        if (!quiz) {
+            return res.status(404).json({ success: false, message: 'Quiz not found.' });
+        }
+
+        quiz.share.public = true;
+        await quiz.save();
+
+        return res.status(201).json({ 
+            success: true,
+            message: 'Public access alowed successfully.',
+            token: quiz.share.token
+        });
+
+    } catch (error) {
+        console.error('Error while sharing quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while sharing quiz: ' + error.message });
+    }
+};
+
+export const accessPublicQuiz = async (req, res) => {
+    const token = req.params.token;
+
+    if (!token) {
+        return res.status(400).json({ success: false, message: 'Quiz token is required.' });
+    }
+
+    try {
+        const quiz = await quizModel.findOne({ 'share.token': token });
+
+        if (!quiz) {
+            return res.status(404).json({ success: false, message: 'Quiz not found.' });
+        }
+        if (!quiz.share.public) {
+            return res.status(403).json({ success: false, message: "Quiz isn't allowed for public access."});
+        }
+
+        return res.status(200).json({ 
+            success: true,
+            message: 'Public quiz accessed successfully.',
+            quiz: quiz
+        });
+
+    } catch (error) {
+        console.error('Error while sharing quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while sharing quiz: ' + error.message });
     }
 };

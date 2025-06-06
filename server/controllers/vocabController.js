@@ -112,6 +112,7 @@ export const addWords = async (words, userId, quizId) => {
                 languageLevel: word.languageLevel,
                 category: word.category,
                 definition: word.definition,
+                exampleSentence: word.exampleSentence,
             });
 
             if (quizId) newWord.quizIds.push(quizId);
@@ -122,7 +123,7 @@ export const addWords = async (words, userId, quizId) => {
 }
 
 export const addAiFieldWords = async (req, res) => {
-    const { userId, newWords } = req.body;
+    const { userId, newWords, language } = req.body;
 
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
@@ -140,7 +141,7 @@ export const addAiFieldWords = async (req, res) => {
             vocabChat = await getVocabChat(userId);
         }
 
-        let fieldWords = await vocabChat.sendMessage({ message: newWords });
+        let fieldWords = await vocabChat.sendMessage({ message: language ? `${language} words: ${newWords}`: newWords });
         fieldWords = JSON.parse(fieldWords.text);
 
         await addWords(fieldWords, userId);
