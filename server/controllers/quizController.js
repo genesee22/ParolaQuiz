@@ -3,24 +3,6 @@ import vocabModel from '../models/vocabModel.js';
 import { deleteImgQuizChat, deleteQuizChat, deleteVocabChat, getImgQuizChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
 import { addWords } from './vocabController.js';
 
-const addAiFieldWords = async (userId, quizId, language, words) => {
-    let vocabChat = await getVocabChat(userId);
-
-    let isOverloaded = vocabChat.history.length > 3;
-    if (isOverloaded) {
-        deleteVocabChat(userId);
-        vocabChat = await getVocabChat(userId);
-    }
-
-    let fieldWords = await vocabChat.sendMessage({ 
-        message: `${language} words: ${words}`
-    });
-
-    fieldWords = JSON.parse(fieldWords.text);
-
-    addWords(fieldWords, userId, quizId);
-};
-
 export const getQuizzes = async (req, res) => {
     const { userId, filter } = req.body;
 
@@ -70,9 +52,27 @@ export const getQuizById = async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error geting quiz:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error geting quiz: ' + error.message });
+        console.error('Error getting quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error getting quiz: ' + error.message });
     }
+};
+
+const addAiFieldWords = async (userId, quizId, language, words) => {
+    let vocabChat = await getVocabChat(userId);
+
+    let isOverloaded = vocabChat.history.length > 3;
+    if (isOverloaded) {
+        deleteVocabChat(userId);
+        vocabChat = await getVocabChat(userId);
+    }
+
+    let fieldWords = await vocabChat.sendMessage({ 
+        message: `${language} words: ${words}`
+    });
+
+    fieldWords = JSON.parse(fieldWords.text);
+
+    addWords(fieldWords, userId, quizId);
 };
 
 export const createQuiz = async (req, res) => {
@@ -105,6 +105,7 @@ export const createQuiz = async (req, res) => {
         const quiz = new quizModel({
             userId: userId,
             type: settings.type,
+            language: settings.language,
             title: generatedQuiz.title,
             questions: generatedQuiz.questions,
         });
@@ -160,6 +161,7 @@ export const createImgQuiz = async (req, res) => {
         const quiz = new quizModel({
             userId: userId,
             type: 'image',
+            language: settings.language,
             title: generatedQuiz.title,
             questions: generatedQuiz.questions,
         });
@@ -169,7 +171,7 @@ export const createImgQuiz = async (req, res) => {
         await quiz.save();
         
         if (settings.type === 'vocabulary') {
-            addAiFieldWords(userId, settings.language, data);
+            addAiFieldWords(userId, quiz._id, settings.language, data);
         }
 
         return res.status(201).json({ 
@@ -242,6 +244,8 @@ export const updateQuiz = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
 
+        if (data.type) quiz.type = data.type;
+        if (data.language) quiz.language = data.language;
         if (data.title) quiz.title = data.title;
         if (data.questions) quiz.questions = data.questions;
 
@@ -335,9 +339,9 @@ export const shareQuiz = async (req, res) => {
         quiz.share.public = true;
         await quiz.save();
 
-        return res.status(201).json({ 
+        return res.status(200).json({ 
             success: true,
-            message: 'Public access alowed successfully.',
+            message: 'Public access allowed successfully.',
             token: quiz.share.token
         });
 
@@ -373,5 +377,51 @@ export const accessPublicQuiz = async (req, res) => {
     } catch (error) {
         console.error('Error while sharing quiz:', error);
         return res.status(500).json({ success: false, message: 'Internal server error while sharing quiz: ' + error.message });
+    }
+};
+
+export const cloneQuiz = async (req, res) => {
+    const { userId } = req.body;
+    const token = req.params.token;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!token) {
+        return res.status(400).json({ success: false, message: 'Quiz token is required.' });
+    }
+
+    try {
+        const quiz = await quizModel.findOne({ 'share.token': token });
+
+        if (!quiz) {
+            return res.status(404).json({ success: false, message: 'Quiz not found.' });
+        }
+        if (!quiz.share.public) {
+            return res.status(403).json({ success: false, message: "Quiz isn't allowed for public access."});
+        }
+        if (quiz.userId === userId) {
+            return res.status(403).json({ success: false, message: "Can't clone quiz for the same user."});
+        }
+
+        const quizClone = new quizModel({
+            userId: userId,
+            type: quiz.type,
+            language: quiz.language,
+            title: quiz.title,
+            questions: quiz.questions,
+        });
+
+        await quizClone.save();
+
+        return res.status(200).json({ 
+            success: true,
+            message: 'Quiz successfully cloned.',
+            quiz: quizClone
+        });
+
+    } catch (error) {
+        console.error('Error while cloning quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while cloning quiz: ' + error.message });
     }
 };
