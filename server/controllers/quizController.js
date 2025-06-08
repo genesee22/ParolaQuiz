@@ -1,9 +1,10 @@
 import quizModel from '../models/quizModel.js';
 import vocabModel from '../models/vocabModel.js';
+import userModel from '../models/userModel.js';
 import { deleteImgQuizChat, deleteQuizChat, deleteVocabChat, getImgQuizChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
 import { addWords } from './vocabController.js';
 
-export const getQuizzes = async (req, res) => {
+export const getMyQuizzes = async (req, res) => {
     const { userId, filter } = req.body;
 
     if (!userId) {
@@ -37,6 +38,9 @@ export const getQuizById = async (req, res) => {
 
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
     try {
@@ -194,6 +198,9 @@ export const removeQuiz = async (req, res) => {
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
     }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
+    }
 
     try {
         const quiz = await quizModel.findByIdAndDelete(quizId);
@@ -236,6 +243,9 @@ export const updateQuiz = async (req, res) => {
     if (!data) {
         return res.status(400).json({ success: false, message: 'New data is required.' });
     }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
+    }
 
     try {
         const quiz = await quizModel.findById(quizId);
@@ -268,6 +278,9 @@ export const saveAnswers = async (req, res) => {
     }
     if (!answers) {
         return res.status(400).json({ success: false, message: 'User answers are required.' });
+    }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
     try {
@@ -322,11 +335,14 @@ export const saveAnswers = async (req, res) => {
 };
 
 export const shareQuiz = async (req, res) => {
-    const { userId } = req.body;
+    const { userId, email } = req.body;
     const quizId = req.params.id;
 
     if (!userId) {
         return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
     try {
@@ -335,13 +351,17 @@ export const shareQuiz = async (req, res) => {
         if (!quiz) {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
+        if (email) {
+            const user = await userModel.findOne({ email });
+            quiz.share.userIds.push(user._id);
+        }
+        else quiz.share.public = true;
 
-        quiz.share.public = true;
         await quiz.save();
 
         return res.status(200).json({ 
             success: true,
-            message: 'Public access allowed successfully.',
+            message: 'Quiz shared successfully.',
             token: quiz.share.token
         });
 
@@ -351,36 +371,44 @@ export const shareQuiz = async (req, res) => {
     }
 };
 
-export const accessPublicQuiz = async (req, res) => {
-    const token = req.params.token;
+export const unshareQuiz = async (req, res) => {
+    const { userId, email } = req.body;
+    const quizId = req.params.id;
 
-    if (!token) {
-        return res.status(400).json({ success: false, message: 'Quiz token is required.' });
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
     try {
-        const quiz = await quizModel.findOne({ 'share.token': token });
+        const quiz = await quizModel.findById(quizId);
 
         if (!quiz) {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
-        if (!quiz.share.public) {
-            return res.status(403).json({ success: false, message: "Quiz isn't allowed for public access."});
-        }
+
+        const user = await userModel.findOne({ email });
+
+        if (user) quiz.share.userIds.pull(user._id);
+        else quiz.share.userIds = [];
+        quiz.share.public = false;
+
+        await quiz.save();
 
         return res.status(200).json({ 
             success: true,
-            message: 'Public quiz accessed successfully.',
-            quiz: quiz
+            message: 'Quiz unshared successfully.',
         });
 
     } catch (error) {
-        console.error('Error while sharing quiz:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error while sharing quiz: ' + error.message });
+        console.error('Error while unsharing quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while unsharing quiz: ' + error.message });
     }
 };
 
-export const cloneQuiz = async (req, res) => {
+export const getSharedQuiz = async (req, res) => {
     const { userId } = req.body;
     const token = req.params.token;
 
@@ -397,31 +425,87 @@ export const cloneQuiz = async (req, res) => {
         if (!quiz) {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
-        if (!quiz.share.public) {
-            return res.status(403).json({ success: false, message: "Quiz isn't allowed for public access."});
+
+        if (quiz.share.public) {
+            return res.status(200).json({ success: true, quiz });
         }
-        if (quiz.userId === userId) {
-            return res.status(403).json({ success: false, message: "Can't clone quiz for the same user."});
+        
+        const hasAccess = userId && quiz.share.userIds.some(id => id.toString() === userId.toString());
+        if (hasAccess) {
+            return res.status(200).json({ success: true, quiz });
+        }
+        const isCreator = userId && userId.toString() === quiz.userId.toString();
+        if (isCreator) {
+            return res.status(200).json({ success: true, quiz });
         }
 
-        const quizClone = new quizModel({
-            userId: userId,
-            type: quiz.type,
-            language: quiz.language,
-            title: quiz.title,
-            questions: quiz.questions,
-        });
+        return res.status(403).json({ success: false, message: 'Access forbidden.' });
 
-        await quizClone.save();
+    } catch (error) {
+        console.error('Error while sharing quiz:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error while sharing quiz: ' + error.message });
+    }
+};
 
-        return res.status(200).json({ 
-            success: true,
-            message: 'Quiz successfully cloned.',
-            quiz: quizClone
-        });
+export const cloneQuiz = async (req, res) => {
+    const { userId } = req.body;
+    const quizId = req.params.id;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+    if (!quizId) {
+        return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
+    }
+
+    try {
+        const quiz = await quizModel.findById(quizId);
+
+        if (!quiz) {
+            return res.status(404).json({ success: false, message: 'Quiz not found.' });
+        }
+
+        const isCreator = userId && userId.toString() === quiz.userId.toString();
+        if (isCreator) {
+            return res.status(403).json({ success: false, message: "Can't clone quiz created by the same user." });
+        }
+
+        const hasAccess = userId && quiz.share.userIds.some(id => id.toString() === userId.toString());
+        if (hasAccess || quiz.share.public) {
+            const quizClone = new quizModel({
+                userId: userId,
+                type: quiz.type,
+                language: quiz.language,
+                title: quiz.title,
+                questions: quiz.questions,
+            });
+
+            await quizClone.save();
+
+            if (quizClone.type === 'vocabulary') {
+                const words = [];
+
+                quizClone.questions.map(async (question, i) => {
+                    words.push(question.correctAnswer);
+                });
+
+                addAiFieldWords(userId, quizClone._id, quizClone.language, words);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Quiz successfully cloned.',
+                quiz: quizClone
+            });
+        }
+
+        return res.status(403).json({ success: false, message: 'Access forbidden.' });
 
     } catch (error) {
         console.error('Error while cloning quiz:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error while cloning quiz: ' + error.message });
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error while cloning quiz: ' + error.message
+        });
     }
 };
