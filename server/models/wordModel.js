@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const vocabSchema = new mongoose.Schema({
+const wordSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'user',
@@ -23,11 +23,11 @@ const vocabSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now },
 });
 
-vocabSchema.pre('save', function (next) {
+wordSchema.pre('save', function (next) {
     this.updatedAt = Date.now();
     next();
 });
 
-const vocabModel = mongoose.models.vocabulary || mongoose.model('words', vocabSchema);
+const wordModel = mongoose.models.word || mongoose.model('words', wordSchema);
 
-export default vocabModel;
+export default wordModel;

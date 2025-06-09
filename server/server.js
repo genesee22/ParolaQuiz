@@ -3,17 +3,19 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import 'dotenv/config';
-import connectDB from './config/mongodb.js';
+import connectMongoDB from './config/mongodb.js';
+import connectRedis from './config/redis.js';
 
 import authRouter from './routes/authRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import quizRouter from './routes/quizRoutes.js';
-import vocabRouter from './routes/vocabRoutes.js';
+import wordRouter from './routes/wordRoutes.js';
 
 const app = express();
-const port = process.env.PORT || '';
+const port = process.env.PORT;
 
-connectDB();
+connectMongoDB();
+connectRedis();
 
 app.use(express.json());
 app.use(cookieParser());
@@ -23,6 +25,6 @@ app.get ('/', (req, res) => res.send('ParolaQuiz Server'));
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
 app.use('/api/quiz', quizRouter);
-app.use('/api/vocabulary', vocabRouter);
+app.use('/api/words', wordRouter);
 
 app.listen(port, () => console.log(`Server is running at http://localhost:${port}`));

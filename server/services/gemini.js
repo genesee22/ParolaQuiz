@@ -1,15 +1,21 @@
 import { GoogleGenAI } from '@google/genai';
-import vocabModel from '../models/vocabModel.js';
 import 'dotenv/config';
+import { chatCleanup } from '../tools/chatHandler.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const quizChats = new Map();
-const imgQuizChats = new Map();
-const vocabularyChats = new Map();
+export const quizChats = new Map();
+export const imgQuizChats = new Map();
+export const wordProcessChats = new Map();
+
+setInterval(() => {
+  chatCleanup(quizChats);
+  chatCleanup(imgQuizChats);
+  chatCleanup(wordProcessChats);
+}, 5 * 1000);
 
 export const getQuizChat = async (userId) => {
-  if (quizChats.has(userId)) return quizChats.get(userId);
+  if (quizChats.has(userId)) return quizChats.get(userId).chat;
 
   const chat = await ai.chats.create({
     model: 'gemini-2.0-flash',
@@ -21,8 +27,8 @@ export const getQuizChat = async (userId) => {
         properties: {
           title: { type: 'string' },
           questions: {
-          type: 'array',
-          items: {
+            type: 'array',
+            items: {
               type: 'object',
               properties: {
                 question: { type: 'string' },
@@ -43,15 +49,13 @@ export const getQuizChat = async (userId) => {
     }
   });
 
-  quizChats.set(userId, chat);
+  quizChats.set(userId, { chat, timestamp: Date.now() });
 
-  return quizChats.get(userId);
+  return chat;
 };
 
-export const deleteQuizChat = (userId) => { quizChats.delete(userId) };
-
 export const getImgQuizChat = async (userId) => {
-  if (imgQuizChats.has(userId)) return imgQuizChats.get(userId);
+  if (imgQuizChats.has(userId)) return imgQuizChats.get(userId).chat;
 
   const chat = await ai.chats.create({
     model: 'gemini-2.0-flash',
@@ -84,15 +88,13 @@ export const getImgQuizChat = async (userId) => {
     }
   });
 
-  imgQuizChats.set(userId, chat);
+  imgQuizChats.set(userId, { chat, timestamp: Date.now() });
 
-  return imgQuizChats.get(userId);
+  return chat;
 };
 
-export const deleteImgQuizChat = (userId) => { imgQuizChats.delete(userId) };
-
-export const getVocabChat = async (userId) => {
-  if (vocabularyChats.has(userId)) return vocabularyChats.get(userId);
+export const getWordProcessChat = async (userId) => {
+  if (wordProcessChats.has(userId)) return wordProcessChats.get(userId).chat;
 
   const chat = await ai.chats.create({
     model: 'gemini-2.0-flash',
@@ -117,10 +119,7 @@ export const getVocabChat = async (userId) => {
     }
   });
 
-  vocabularyChats.set(userId, chat);
+  wordProcessChats.set(userId, { chat, timestamp: Date.now() });
 
-  return vocabularyChats.get(userId);
-
+  return chat;
 };
-
-export const deleteVocabChat = (userId) => { vocabularyChats.delete(userId) };

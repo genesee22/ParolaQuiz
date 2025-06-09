@@ -1,11 +1,11 @@
 import express from 'express';
 import userAuth from '../middleware/userAuth.js';
-import { getQuizById, getMyQuizzes, getSharedQuiz, createQuiz, createImgQuiz, cloneQuiz, updateQuiz, shareQuiz, saveAnswers, removeQuiz, unshareQuiz } from '../controllers/quizController.js';
+import { getQuizzes, getQuizById, getSharedQuiz, createQuiz, createImgQuiz, cloneQuiz, updateQuiz, shareQuiz, saveAnswers, removeQuiz, unshareQuiz } from '../controllers/quizController.js';
 
 const quizRouter = express.Router();
 
+quizRouter.get('/', userAuth, getQuizzes );
 quizRouter.get('/:id', userAuth, getQuizById );
-quizRouter.get('/my', userAuth, getMyQuizzes );
 quizRouter.get('/shared/:token', userAuth, getSharedQuiz);
 
 quizRouter.post('/', userAuth, createQuiz);

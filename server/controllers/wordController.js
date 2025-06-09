@@ -1,5 +1,5 @@
-import vocabModel from "../models/vocabModel.js";
-import { getVocabChat } from "../services/geminiService.js";
+import wordModel from "../models/wordModel.js";
+import { getWordProcessChat } from "../services/gemini.js";
 
 export const addWord = async (req, res) => {
     const { userId, newWord } = req.body;
@@ -12,13 +12,13 @@ export const addWord = async (req, res) => {
     }
 
     try {
-        const existingWord = await vocabModel.findOne({ word: newWord.word });
+        const existingWord = await wordModel.findOne({ word: newWord.word });
 
         if (existingWord) { 
             return res.status(409).json({ success: false, message: 'Word already exists.' });
         }
 
-        const word = new vocabModel({
+        const word = new wordModel({
             userId: userId,
             word: newWord.word,
             languageLevel: newWord.languageLevel,
@@ -38,6 +38,32 @@ export const addWord = async (req, res) => {
     }
 };
 
+export const addWords = async (words, userId, quizId) => {
+    for (const word of words) {
+        const existingWord = await wordModel.findOne({ userId: userId, word: word.word })
+
+        if (existingWord && !existingWord.quizIds.includes(quizId)) {
+            existingWord.quizIds.push(quizId);
+            await existingWord.save();
+
+        } else {
+            const newWord = new wordModel({  
+                userId: userId,
+                word: word.word,
+                language: word.language,
+                languageLevel: word.languageLevel,
+                category: word.category,
+                definition: word.definition,
+                exampleSentence: word.exampleSentence,
+            });
+
+            if (quizId) newWord.quizIds.push(quizId);
+
+            await newWord.save();
+        }
+    }
+}
+
 export const removeWord = async (req, res) => {
     const { userId } = req.body;
     const wordId = req.params.id;
@@ -47,7 +73,7 @@ export const removeWord = async (req, res) => {
     }
 
     try {
-        const word = await vocabModel.findByIdAndDelete(wordId);
+        const word = await wordModel.findByIdAndDelete(wordId);
 
         if (!word) {
             return res.status(409).json({ success: false, message: 'Word not found.' });
@@ -61,7 +87,7 @@ export const removeWord = async (req, res) => {
     }
 };
 
-export const updateWrord = async (req, res) => {
+export const updateWord = async (req, res) => {
     const { userId, newData } = req.body;
     const wordId = req.params.id;
 
@@ -73,7 +99,7 @@ export const updateWrord = async (req, res) => {
     }
 
     try {
-        const word = await vocabModel.findById(wordId);
+        const word = await wordModel.findById(wordId);
 
         if (!word) {
             return res.status(409).json({ success: false, message: 'Word not found.' });
@@ -96,32 +122,6 @@ export const updateWrord = async (req, res) => {
     }
 };
 
-export const addWords = async (words, userId, quizId) => {
-    for (const word of words) {
-        const existingWord = await vocabModel.findOne({ userId: userId, word: word.word })
-
-        if (existingWord && !existingWord.quizIds.includes(quizId)) {
-            existingWord.quizIds.push(quizId);
-            await existingWord.save();
-
-        } else {
-            const newWord = new vocabModel({  
-                userId: userId,
-                word: word.word,
-                language: word.language,
-                languageLevel: word.languageLevel,
-                category: word.category,
-                definition: word.definition,
-                exampleSentence: word.exampleSentence,
-            });
-
-            if (quizId) newWord.quizIds.push(quizId);
-
-            await newWord.save();
-        }
-    }
-}
-
 export const addAiFieldWords = async (req, res) => {
     const { userId, newWords, language } = req.body;
 
@@ -133,15 +133,9 @@ export const addAiFieldWords = async (req, res) => {
     }
 
     try {
-        let vocabChat = await getVocabChat(userId);
-        
-        let isOverloaded = vocabChat.history.length > 101;
-        if (isOverloaded) {
-            deleteVocabChat(userId);
-            vocabChat = await getVocabChat(userId);
-        }
+        let wordProcessChat = await getWordProcessChat(userId);
 
-        let fieldWords = await vocabChat.sendMessage({ message: language ? `${language} words: ${newWords}`: newWords });
+        let fieldWords = await wordProcessChat.sendMessage({ message: language ? `${language} words: ${newWords}`: newWords });
         fieldWords = JSON.parse(fieldWords.text);
 
         await addWords(fieldWords, userId);
@@ -150,7 +144,7 @@ export const addAiFieldWords = async (req, res) => {
             success: true, 
             message: 'AI field words added successfully.',
             aiFieldWords: fieldWords, 
-            vocabularyChat: vocabChat.history
+            wordProcessChat: wordProcessChat.history
         });
 
     } catch (error) {

@@ -1,10 +1,10 @@
 import quizModel from '../models/quizModel.js';
-import vocabModel from '../models/vocabModel.js';
+import wordModel from '../models/wordModel.js';
 import userModel from '../models/userModel.js';
-import { deleteImgQuizChat, deleteQuizChat, deleteVocabChat, getImgQuizChat, getQuizChat, getVocabChat } from '../services/geminiService.js';
-import { addWords } from './vocabController.js';
+import { getQuizChat, getImgQuizChat, getWordProcessChat } from '../services/gemini.js';
+import { addWords } from './wordController.js';
 
-export const getMyQuizzes = async (req, res) => {
+export const getQuizzes = async (req, res) => {
     const { userId, filter } = req.body;
 
     if (!userId) {
@@ -62,15 +62,9 @@ export const getQuizById = async (req, res) => {
 };
 
 const addAiFieldWords = async (userId, quizId, language, words) => {
-    let vocabChat = await getVocabChat(userId);
+    let wordProcessChat = await getWordProcessChat(userId);
 
-    let isOverloaded = vocabChat.history.length > 3;
-    if (isOverloaded) {
-        deleteVocabChat(userId);
-        vocabChat = await getVocabChat(userId);
-    }
-
-    let fieldWords = await vocabChat.sendMessage({ 
+    let fieldWords = await wordProcessChat.sendMessage({ 
         message: `${language} words: ${words}`
     });
 
@@ -95,12 +89,6 @@ export const createQuiz = async (req, res) => {
     try {
         let quizChat = await getQuizChat(userId);
         
-        let isOverloaded = quizChat.history.length > 3;
-        if (isOverloaded) {
-            deleteQuizChat(userId);
-            quizChat = await getQuizChat(userId);
-        }
-        
         let generatedQuiz = await quizChat.sendMessage({
             message: `${settings.language} ${settings.type}, ${settings.languageLevel} level, ${settings.style} style${settings.questions ? `, ${settings.questions} questions` : ''}: ${data}`
         });
@@ -118,7 +106,7 @@ export const createQuiz = async (req, res) => {
 
         await quiz.save();
 
-        if (settings.type === 'vocabulary') {
+        if (settings.type === 'words') {
             addAiFieldWords(userId, quiz._id, settings.language, data);
         }
         
@@ -151,12 +139,6 @@ export const createImgQuiz = async (req, res) => {
     try {
         let quizChat = await getImgQuizChat(userId);
         
-        let isOverloaded = quizChat.history.length > 3;
-        if (isOverloaded) {
-            deleteImgQuizChat(userId);
-            quizChat = await getImgQuizChat(userId);
-        }
-        
         let generatedQuiz = await quizChat.sendMessage({
             message: `${settings.language} words: ${data}`
         });
@@ -174,7 +156,7 @@ export const createImgQuiz = async (req, res) => {
 
         await quiz.save();
         
-        if (settings.type === 'vocabulary') {
+        if (settings.type === 'words') {
             addAiFieldWords(userId, quiz._id, settings.language, data);
         }
 
@@ -208,15 +190,15 @@ export const removeQuiz = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
 
-        const quizWords = await vocabModel.find({ userId: userId, quizIds: quizId });
+        const quizWords = await wordModel.find({ userId: userId, quizIds: quizId });
         if (quizWords.length === 0) {
             return res.status(200).json({ 
                 success: true, 
-                message: 'Quiz removed successfully. No vocabulary words were linked to this quiz.'
+                message: 'Quiz removed successfully. No words were linked to this quiz.'
             });
         }
 
-        await vocabModel.updateMany(
+        await wordModel.updateMany(
             { userId, quizIds: quizId },
             { $pull: { quizIds: quizId } }
         );
@@ -224,7 +206,7 @@ export const removeQuiz = async (req, res) => {
         return res.status(200).json({ 
             success: true, 
             message: 'Quiz removed successfully.', 
-            'Vocabulary words with removed quizId:': quizWords 
+            'words words with removed quizId:': quizWords 
         });
         
     } catch (error) {
@@ -300,12 +282,12 @@ export const saveAnswers = async (req, res) => {
                 totalCorrect++;
             }
             
-            const word = await vocabModel.findOne({ 
+            const word = await wordModel.findOne({ 
                 userId: userId, 
                 word: correctAnswer.charAt(0).toUpperCase() + correctAnswer.slice(1)
             });
 
-            if (quiz.type === 'vocabulary' && word) {
+            if (quiz.type === 'words' && word) {
 
                 if (question.correctCount === 0) word.knowledge = 'Hard Word';
                 else if (question.correctCount === 1) word.knowledge = 'Almost Know';
@@ -482,7 +464,7 @@ export const cloneQuiz = async (req, res) => {
 
             await quizClone.save();
 
-            if (quizClone.type === 'vocabulary') {
+            if (quizClone.type === 'words') {
                 const words = [];
 
                 quizClone.questions.map(async (question, i) => {
