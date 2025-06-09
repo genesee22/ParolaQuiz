@@ -1,17 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
-import { chatCleanup } from '../tools/chatHandler.js';
+import { autoCleanup } from '../tools/chatHandler.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export const quizChats = new Map();
-export const imgQuizChats = new Map();
-export const wordProcessChats = new Map();
+const quizChats = new Map();
+const imgQuizChats = new Map();
+const wordProcessChats = new Map();
 
 setInterval(() => {
-  chatCleanup(quizChats);
-  chatCleanup(imgQuizChats);
-  chatCleanup(wordProcessChats);
+  autoCleanup(quizChats);
+  autoCleanup(imgQuizChats);
+  autoCleanup(wordProcessChats);
 }, 5 * 1000);
 
 export const getQuizChat = async (userId) => {

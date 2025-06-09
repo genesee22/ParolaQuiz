@@ -3,6 +3,7 @@ import wordModel from '../models/wordModel.js';
 import userModel from '../models/userModel.js';
 import { getQuizChat, getImgQuizChat, getWordProcessChat } from '../services/gemini.js';
 import { addWords } from './wordController.js';
+import { redis } from '../config/redis.js';
 
 export const getQuizzes = async (req, res) => {
     const { userId, filter } = req.body;
@@ -19,6 +20,16 @@ export const getQuizzes = async (req, res) => {
         if (filter?.date) query.createdAt = filter.date;
 
         const quizzes = await quizModel.find(query);
+        
+        await Promise.all(
+            quizzes.map(async (quiz) => {
+                const key = `quiz:${quiz._id.toString()}`
+
+                if (!await redis.get(key)) {
+                    await redis.set(key, JSON.stringify(quiz), { EX: 3600 });
+                }
+            })
+        );
 
         if (quizzes.length === 0) {
             return res.status(200).json({ success: true, quizzes: [], message: 'No quizzes found.' });
@@ -43,6 +54,11 @@ export const getQuizById = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
+    const cachedQuiz = await redis.get(`quiz:${quiz._id}`);
+    if (cachedQuiz) {
+        return res.status(200).json({ success: true, quiz: JSON.parse(cachedQuiz) });
+    }
+
     try {
         const quiz = await quizModel.findById(quizId);
 
@@ -50,10 +66,9 @@ export const getQuizById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Quiz not found.' });
         }
 
-        return res.status(200).json({ 
-            success: true, 
-            quiz: quiz
-        });
+        await redis.set(`quiz:${quizId}`, JSON.stringify(quiz), { EX: 3600 });
+
+        return res.status(200).json({ success: true, quiz: quiz });
         
     } catch (error) {
         console.error('Error getting quiz:', error);
@@ -105,6 +120,8 @@ export const createQuiz = async (req, res) => {
         if (quiz.title === '') quiz.title = quiz.createdAt.toLocaleString();
 
         await quiz.save();
+
+        await redis.set(`quiz:${quiz._id.toString()}`, JSON.stringify(quiz), { EX: 3600 });
 
         if (settings.type === 'words') {
             addAiFieldWords(userId, quiz._id, settings.language, data);
