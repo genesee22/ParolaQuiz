@@ -1,5 +1,5 @@
 import wordModel from "../models/wordModel.js";
-import { getWordProcessChat } from "../services/gemini.js";
+import { wordProcessChat } from "../services/gemini.js";
 
 export const addWord = async (req, res) => {
     const { userId, newWord } = req.body;
@@ -133,9 +133,9 @@ export const addAiFieldWords = async (req, res) => {
     }
 
     try {
-        let wordProcessChat = await getWordProcessChat(userId);
+        let chat = await wordProcessChat(userId);
 
-        let fieldWords = await wordProcessChat.sendMessage({ message: language ? `${language} words: ${newWords}`: newWords });
+        let fieldWords = await chat.sendMessage({ message: language ? `${language} words: ${newWords}`: newWords });
         fieldWords = JSON.parse(fieldWords.text);
 
         await addWords(fieldWords, userId);
@@ -144,7 +144,7 @@ export const addAiFieldWords = async (req, res) => {
             success: true, 
             message: 'AI field words added successfully.',
             aiFieldWords: fieldWords, 
-            wordProcessChat: wordProcessChat.history
+            wordProcessChat: chat.history
         });
 
     } catch (error) {

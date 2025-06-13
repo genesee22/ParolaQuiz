@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import { autoCleanup } from '../tools/chatHandler.js';
+import { multipleChoiceSchema, fillInTheBlankSchema, matchingSchema, trueFalseSchema, imgQuizSchema, wordProcessSchema } from '../config/chatResponseSchemas.js';
 
 const ai = new GoogleGenAI({
     vertexai: true,
@@ -18,39 +19,22 @@ setInterval(() => {
     autoCleanup(wordProcessChats);
 }, 5 * 60 * 1000);
 
-export const getQuizChat = async (userId) => {
+export const quizChat = async (userId, style) => {
     if (quizChats.has(userId)) return quizChats.get(userId).chat;
-    
+
+    let responseSchema = {};
+    if (style === 'multiple-choice') responseSchema = multipleChoiceSchema;
+    if (style === 'fill-in-the-blank') responseSchema = fillInTheBlankSchema;
+    if (style === 'matching') responseSchema = matchingSchema;
+    if (style === 'true-false') responseSchema = trueFalseSchema;
+
     const chat = await ai.chats.create({
         model: 'gemini-2.0-flash-001',
         config: {
             systemInstruction: process.env.QUIZ_PROMPT,
             responseMimeType: 'application/json',
             temperature: 0.2,
-            responseSchema: {
-                type: 'object',
-                properties: {
-                title: { type: 'string' },
-                questions: {
-                    type: 'array',
-                    items: {
-                    type: 'object',
-                    properties: {
-                        question: { type: 'string' },
-                        options: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        minItems: 4,
-                        maxItems: 4
-                        },
-                        correctAnswer: { type: 'string' }
-                    },
-                    required: ['question', 'options', 'correctAnswer']
-                    }
-                }
-                },
-                required: ['title', 'questions']
-            }
+            responseSchema: responseSchema
         }
     });
     
@@ -59,7 +43,7 @@ export const getQuizChat = async (userId) => {
     return chat;
 };
 
-export const getImgQuizChat = async (userId) => {
+export const imgQuizChat = async (userId) => {
     if (imgQuizChats.has(userId)) return imgQuizChats.get(userId).chat;
 
     const chat = await ai.chats.create({
@@ -67,29 +51,7 @@ export const getImgQuizChat = async (userId) => {
         config: {
             systemInstruction: process.env.IMG_QUIZ_PROMPT,
             responseMimeType: 'application/json',
-            responseSchema: {
-                type: 'object',
-                properties: {
-                title: { type: 'string' },
-                questions: {
-                    type: 'array',
-                    items: {
-                    type: 'object',
-                    properties: {
-                        options: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        minItems: 4,
-                        maxItems: 4
-                        },
-                        correctAnswer: { type: 'string' }
-                    },
-                    required: ['options', 'correctAnswer']
-                    }
-                }
-                },
-                required: ['title', 'questions']
-            }
+            responseSchema: imgQuizSchema
         }
     });
 
@@ -98,7 +60,7 @@ export const getImgQuizChat = async (userId) => {
     return chat;
 };
 
-export const getWordProcessChat = async (userId) => {
+export const wordProcessChat = async (userId) => {
     if (wordProcessChats.has(userId)) return wordProcessChats.get(userId).chat;
 
     const chat = await ai.chats.create({
@@ -106,21 +68,7 @@ export const getWordProcessChat = async (userId) => {
         config: {
             systemInstruction: process.env.WORDS_PROCESS_PROMPT,
             responseMimeType: 'application/json',
-            responseSchema: {
-                type: 'array',
-                items: {
-                type: 'object',
-                properties: {
-                    word: { type: 'string' },
-                    language: { type: 'string' },
-                    languageLevel: { type: 'string' },
-                    category: { type: 'string' },
-                    definition: { type: 'string' },
-                    exampleSentence: { type: 'string' },
-                },
-                required: ['word', 'language', 'languageLevel', 'category', 'definition'],
-                }
-            }
+            responseSchema: wordProcessSchema
         }
     });
 

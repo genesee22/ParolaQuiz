@@ -1,7 +1,7 @@
 import quizModel from '../models/quizModel.js';
 import wordModel from '../models/wordModel.js';
 import userModel from '../models/userModel.js';
-import { getQuizChat, getImgQuizChat, getWordProcessChat } from '../services/gemini.js';
+import { quizChat, imgQuizChat, wordProcessChat } from '../services/gemini.js';
 import { addWords } from './wordController.js';
 import { redis } from '../config/redis.js';
 
@@ -77,9 +77,9 @@ export const getQuizById = async (req, res) => {
 };
 
 const addAiFieldWords = async (userId, quizId, language, words) => {
-    let wordProcessChat = await getWordProcessChat(userId);
+    let chat = await wordProcessChat(userId);
 
-    let fieldWords = await wordProcessChat.sendMessage({ 
+    let fieldWords = await chat.sendMessage({ 
         message: `${language} words: ${words}`
     });
 
@@ -102,9 +102,9 @@ export const createQuiz = async (req, res) => {
     }
 
     try {
-        let quizChat = await getQuizChat(userId);
+        let chat = await quizChat(userId, settings.style);
         
-        let generatedQuiz = await quizChat.sendMessage({
+        let generatedQuiz = await chat.sendMessage({
             message: `${settings.language} ${settings.type}, ${settings.languageLevel} level, ${settings.style} style, ${settings.quantity} questions. Input Data: ${data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
@@ -132,7 +132,7 @@ export const createQuiz = async (req, res) => {
             success: true, 
             message: 'Quiz successfully created.', 
             quiz: quiz,
-            quizChat: quizChat.history
+            quizChat: chat.history
         });
 
     } catch (error) {
@@ -155,9 +155,9 @@ export const createImgQuiz = async (req, res) => {
     }
 
     try {
-        let quizChat = await getImgQuizChat(userId);
+        let chat = await imgQuizChat(userId);
         
-        let generatedQuiz = await quizChat.sendMessage({
+        let generatedQuiz = await chat.sendMessage({
             message: `${settings.language} words: ${data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
@@ -182,7 +182,7 @@ export const createImgQuiz = async (req, res) => {
             success: true, 
             message: 'Image based quiz successfully created.', 
             quiz: quiz,
-            quizChat: quizChat.history
+            quizChat: chat.history
         });
 
     } catch (error) {
