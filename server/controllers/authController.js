@@ -31,7 +31,7 @@ export const register = async (req, res) => {
         await transporter.sendMail(mailOptions);
 
         const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '1d' });
-        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5m' });
+        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -44,7 +44,7 @@ export const register = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 5 * 60 * 1000,
+            maxAge: 30 * 60 * 1000,
         });
             
         return res.status(201).json({ 
@@ -77,7 +77,7 @@ export const login = async (req, res) => {
         }
 
         const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '1d' });
-        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '5m' });
+        const accessToken = jwt.sign({ id: user._id, username: user.name, email: user.email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -90,7 +90,7 @@ export const login = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 5 * 60 * 1000,
+            maxAge: 30 * 60 * 1000,
         });
             
         return res.status(201).json({ 
@@ -120,14 +120,14 @@ export const refresh = async (req, res) => {
         const accessToken = jwt.sign(
             { id: user._id, username: user.name, email: user.email },
             process.env.ACCESS_TOKEN_SECRET,
-            { expiresIn: '5m' }
+            { expiresIn: '30m' }
         );
 
         res.cookie('accessToken', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-            maxAge: 5 * 60 * 1000,
+            maxAge: 30 * 60 * 1000,
         });
 
         res.json({ accessToken });
@@ -258,7 +258,7 @@ export const sendResetOtp = async (req, res) => {
         const otp = String(Math.floor(100000 + Math.random() * 900000));
 
         user.resetOtp = otp;
-        user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+        user.resetOtpExpireAt = Date.now() + 130 * 60 * 1000;
 
         await user.save();
 

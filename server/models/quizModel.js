@@ -8,6 +8,7 @@ const quizSchema = new mongoose.Schema({
         required: true
     },
     type: { type: String, required: true },
+    style: { type: String, required: true },
     language: String,
     title: String,
     questions: [{ 

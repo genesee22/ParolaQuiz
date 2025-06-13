@@ -54,9 +54,9 @@ export const getQuizById = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Quiz ID is required.' });
     }
 
-    const cachedQuiz = await redis.get(`quiz:${quiz._id}`);
+    const cachedQuiz = await redis.get(`quiz:${quizId}`);
     if (cachedQuiz) {
-        return res.status(200).json({ success: true, quiz: JSON.parse(cachedQuiz) });
+        return res.status(200).json({ success: true, quiz: JSON.parse(cachedQuiz) }); 
     }
 
     try {
@@ -105,13 +105,14 @@ export const createQuiz = async (req, res) => {
         let quizChat = await getQuizChat(userId);
         
         let generatedQuiz = await quizChat.sendMessage({
-            message: `${settings.language} ${settings.type}, ${settings.languageLevel} level, ${settings.style} style${settings.questions ? `, ${settings.questions} questions` : ''}: ${data}`
+            message: `${settings.language} ${settings.type}, ${settings.languageLevel} level, ${settings.style} style, ${settings.quantity} questions. Input Data: ${data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
 
         const quiz = new quizModel({
             userId: userId,
             type: settings.type,
+            style: settings.style,
             language: settings.language,
             title: generatedQuiz.title,
             questions: generatedQuiz.questions,
