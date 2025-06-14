@@ -52,7 +52,7 @@ export const matchingSchema = {
     type: 'object',
     properties: {
         title: { type: 'string' },
-        matches: {
+        matchings: {
             type: 'array',
             items: {
                 type: 'object',
@@ -62,11 +62,9 @@ export const matchingSchema = {
                 },
                 required: ['a', 'b'],
             },
-            minItems: 6,
-            maxItems: 6,
         },
     },
-    required: ['title', 'matches']
+    required: ['title', 'matchings']
 };
 
 export const trueFalseSchema = {

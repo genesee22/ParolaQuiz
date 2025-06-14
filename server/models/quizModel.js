@@ -2,32 +2,34 @@ import mongoose from 'mongoose';
 import { nanoid } from 'nanoid';
 
 const quizSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'user', 
-        required: true
-    },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
     type: { type: String, required: true },
     style: { type: String, required: true },
     language: String,
     title: String,
-    questions: [{ 
-        question: String, 
-        options: [String], 
-        correctAnswer: String, 
-        correctCount: { type: Number, default: 0 } 
+
+    questions: [{
+        question: String,
+        options: [String],
+        correctAnswer: String,
+        correctCount: { type: Number, default: 0 }
     }],
-    userAnswers: [String],
+
+    matchings: [{
+        a: String,
+        b: String,
+        correctCount: { type: Number, default: 0 }
+    }],
+
+    userAnswers: [mongoose.Schema.Types.Mixed],
     timesCompleted: { type: Number, default: 0 },
+
     share: {
         token: { type: String, unique: true, default: () => nanoid(10) },
         public: { type: Boolean, default: false },
-        userIds: [{ 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: 'user', 
-            required: false,
-        }],
+        userIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }]
     },
+
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
 });

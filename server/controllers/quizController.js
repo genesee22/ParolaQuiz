@@ -79,10 +79,7 @@ export const getQuizById = async (req, res) => {
 const addAiFieldWords = async (userId, quizId, language, words) => {
     let chat = await wordProcessChat(userId);
 
-    let fieldWords = await chat.sendMessage({ 
-        message: `${language} words: ${words}`
-    });
-
+    let fieldWords = await chat.sendMessage({ message: `${language} words: ${words}` });
     fieldWords = JSON.parse(fieldWords.text);
 
     addWords(fieldWords, userId, quizId);
@@ -115,13 +112,14 @@ export const createQuiz = async (req, res) => {
             style: settings.style,
             language: settings.language,
             title: generatedQuiz.title,
-            questions: generatedQuiz.questions,
         });
 
         if (quiz.title === '') quiz.title = quiz.createdAt.toLocaleString();
 
-        await quiz.save();
+        if (settings.style === 'matching') quiz.matchings = generatedQuiz.matchings;
+        else quiz.questions = generatedQuiz.questions;
 
+        await quiz.save();
         await redis.set(`quiz:${quiz._id.toString()}`, JSON.stringify(quiz), { EX: 3600 });
 
         if (settings.type === 'words') {
@@ -292,29 +290,53 @@ export const saveAnswers = async (req, res) => {
 
         let totalCorrect = 0;
 
-        quiz.questions.map(async (question, i) => {
-            const correctAnswer = question.correctAnswer;
+        if (quiz.style === 'matching') {
+            quiz.matchings.map(async (matching, i) => {
+                if (matching.a === answers[i].a && matching.b === answers[i].b) {
+                    matching.correctCount++;
+                    totalCorrect++;
+                }
 
-            if (correctAnswer === answers[i]) {
-                question.correctCount++;
-                totalCorrect++;
-            }
-            
-            const word = await wordModel.findOne({ 
-                userId: userId, 
-                word: correctAnswer.charAt(0).toUpperCase() + correctAnswer.slice(1)
+                const word = await wordModel.findOne({ 
+                    userId: userId, 
+                    word: matching.a.charAt(0).toUpperCase() + matching.a.slice(1)
+                });
+
+                if (quiz.type === 'words' && word) {
+
+                    if (matching.correctCount === 0) word.knowledge = 'Hard Word';
+                    else if (matching.correctCount === 1) word.knowledge = 'Almost Know';
+                    else word.knowledge = 'Know';
+
+                    await word.save();
+                }
+            })
+
+        } else {
+            quiz.questions.map(async (question, i) => {
+                const correctAnswer = question.correctAnswer;
+
+                if (correctAnswer === answers[i]) {
+                    question.correctCount++;
+                    totalCorrect++;
+                }
+                
+                const word = await wordModel.findOne({ 
+                    userId: userId, 
+                    word: correctAnswer.charAt(0).toUpperCase() + correctAnswer.slice(1)
+                });
+
+                if (quiz.type === 'words' && word) {
+
+                    if (question.correctCount === 0) word.knowledge = 'Hard Word';
+                    else if (question.correctCount === 1) word.knowledge = 'Almost Know';
+                    else word.knowledge = 'Know';
+
+                    await word.save();
+                }
+
             });
-
-            if (quiz.type === 'words' && word) {
-
-                if (question.correctCount === 0) word.knowledge = 'Hard Word';
-                else if (question.correctCount === 1) word.knowledge = 'Almost Know';
-                else word.knowledge = 'Know';
-
-                await word.save();
-            }
-
-        });
+        }
         
         quiz.userAnswers = answers;
         quiz.timesCompleted++;
@@ -325,7 +347,7 @@ export const saveAnswers = async (req, res) => {
             success: true,
             message: 'Answers saved successfully.',
             correctAnswers: totalCorrect,
-            questions: quiz.questions.length,
+            outOf: quiz.questions.length || quiz.matchings.length,
         });
         
     } catch (error) {
