@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import { autoCleanup } from '../tools/chatHandler.js';
-import { multipleChoiceSchema, fillInTheBlankSchema, matchingSchema, trueFalseSchema, imgQuizSchema, wordProcessSchema } from '../config/chatResponseSchemas.js';
+import { multipleChoiceSchema, fillInTheBlankSchema, matchingSchema, trueFalseSchema, wordProcessSchema } from '../config/chatResponseSchemas.js';
 
 const ai = new GoogleGenAI({
     vertexai: true,
@@ -10,12 +10,10 @@ const ai = new GoogleGenAI({
 });
 
 const quizChats = new Map();
-const imgQuizChats = new Map();
 const wordProcessChats = new Map();
 
 setInterval(() => {
     autoCleanup(quizChats);
-    autoCleanup(imgQuizChats);
     autoCleanup(wordProcessChats);
 }, 5 * 60 * 1000);
 
@@ -39,23 +37,6 @@ export const quizChat = async (userId, style) => {
     });
     
     quizChats.set(userId, { chat, timestamp: Date.now() });
-
-    return chat;
-};
-
-export const imgQuizChat = async (userId) => {
-    if (imgQuizChats.has(userId)) return imgQuizChats.get(userId).chat;
-
-    const chat = await ai.chats.create({
-        model: 'gemini-2.0-flash',
-        config: {
-            systemInstruction: process.env.IMG_QUIZ_PROMPT,
-            responseMimeType: 'application/json',
-            responseSchema: imgQuizSchema
-        }
-    });
-
-    imgQuizChats.set(userId, { chat, timestamp: Date.now() });
 
     return chat;
 };

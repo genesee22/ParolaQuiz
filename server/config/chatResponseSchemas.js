@@ -92,30 +92,6 @@ export const trueFalseSchema = {
     required: ['title', 'questions']
 };
 
-export const imgQuizSchema = {
-    type: 'object',
-    properties: {
-        title: { type: 'string' },
-        questions: {
-            type: 'array',
-            items: {
-                type: 'object',
-                properties: {
-                    options: {
-                        type: 'array',
-                        items: { type: 'string' },
-                        minItems: 4,
-                        maxItems: 4
-                    },
-                    correctAnswer: { type: 'string' }
-                },
-                required: ['options', 'correctAnswer']
-            }
-        }
-    },
-    required: ['title', 'questions']
-};
-
 export const wordProcessSchema = {
     type: 'array',
     items: {

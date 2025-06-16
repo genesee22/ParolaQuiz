@@ -1,7 +1,7 @@
 import quizModel from '../models/quizModel.js';
 import wordModel from '../models/wordModel.js';
 import userModel from '../models/userModel.js';
-import { quizChat, imgQuizChat, wordProcessChat } from '../services/gemini.js';
+import { quizChat, wordProcessChat } from '../services/gemini.js';
 import { addWords } from './wordController.js';
 import { redis } from '../config/redis.js';
 
@@ -136,56 +136,6 @@ export const createQuiz = async (req, res) => {
     } catch (error) {
         console.error('Error while creating quiz:', error);        
         return res.status(500).json({ success: false, message: 'Internal server error while creating quiz: ' + error.message });
-    }
-};
-
-export const createImgQuiz = async (req, res) => {
-    const { userId, settings, data } = req.body;
-
-    if (!userId) {
-        return res.status(400).json({ success: false, message: 'User ID is required.' });
-    }
-    if (!settings) {
-        return res.status(400).json({ success: false, message: 'Settings are required.' });
-    }
-    if (!data) {
-        return res.status(400).json({ success: false, message: 'Data is required.' });
-    }
-
-    try {
-        let chat = await imgQuizChat(userId);
-        
-        let generatedQuiz = await chat.sendMessage({
-            message: `${settings.language} words: ${data}`
-        });
-        generatedQuiz = JSON.parse(generatedQuiz.text);
-
-        const quiz = new quizModel({
-            userId: userId,
-            type: 'image',
-            language: settings.language,
-            title: generatedQuiz.title,
-            questions: generatedQuiz.questions,
-        });
-
-        if (quiz.title === '') quiz.title = quiz.createdAt.toLocaleString();
-
-        await quiz.save();
-        
-        if (settings.type === 'words') {
-            addAiFieldWords(userId, quiz._id, settings.language, data);
-        }
-
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Image based quiz successfully created.', 
-            quiz: quiz,
-            quizChat: chat.history
-        });
-
-    } catch (error) {
-        console.error('Error while creating image based quiz:', error);        
-        return res.status(500).json({ success: false, message: 'Internal server error while creating image based quiz: ' + error.message });
     }
 };
 
