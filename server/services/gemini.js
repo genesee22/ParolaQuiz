@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import { autoCleanup } from '../tools/chatHandler.js';
-import { multipleChoiceSchema, fillInTheBlankSchema, matchingSchema, trueFalseSchema, wordProcessSchema } from '../config/chatResponseSchemas.js';
+import { multipleChoiceSchema, fillInTheBlankSchema, matchingSchema, trueFalseSchema, wordProcessSchema } from '../config/responseSchemas.js';
 
 const ai = new GoogleGenAI({
     vertexai: true,

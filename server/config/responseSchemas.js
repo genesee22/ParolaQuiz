@@ -14,9 +14,10 @@ export const multipleChoiceSchema = {
                         minItems: 4,
                         maxItems: 4
                     },
-                    correctAnswer: { type: 'string' }
+                    correctAnswer: { type: 'string' },
+                    explanation: { type: 'string' }
                 },
-                required: ['question', 'options', 'correctAnswer']
+                required: ['question', 'options', 'correctAnswer', 'explanation']
             }
         }
     },
@@ -39,9 +40,10 @@ export const fillInTheBlankSchema = {
                         minItems: 4,
                         maxItems: 4
                     },
-                    correctAnswer: { type: 'string' }
+                    correctAnswer: { type: 'string' },
+                    explanation: { type: 'string' }
                 },
-                required: ['question', 'options', 'correctAnswer']
+                required: ['question', 'options', 'correctAnswer', 'explanation']
             }
         }
     },
@@ -83,9 +85,10 @@ export const trueFalseSchema = {
                         minItems: 2,
                         maxItems: 2
                     },
-                    correctAnswer: { type: 'string' }
+                    correctAnswer: { type: 'string' },
+                    explanation: { type: 'string' }
                 },
-                required: ['question', 'options', 'correctAnswer']
+                required: ['question', 'options', 'correctAnswer', 'explanation']
             }
         }
     },
