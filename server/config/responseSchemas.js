@@ -50,6 +50,32 @@ export const fillInTheBlankSchema = {
     required: ['title', 'questions']
 };
 
+export const trueFalseSchema = {
+    type: 'object',
+    properties: {
+        title: { type: 'string' },
+        questions: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    question: { type: 'string' },
+                    options: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        minItems: 2,
+                        maxItems: 2
+                    },
+                    correctAnswer: { type: 'string' },
+                    explanation: { type: 'string' }
+                },
+                required: ['question', 'options', 'correctAnswer', 'explanation']
+            }
+        }
+    },
+    required: ['title', 'questions']
+};
+
 export const matchingSchema = {
     type: 'object',
     properties: {
@@ -69,7 +95,7 @@ export const matchingSchema = {
     required: ['title', 'matchings']
 };
 
-export const trueFalseSchema = {
+export const mixedSchema = {
     type: 'object',
     properties: {
         title: { type: 'string' },
@@ -83,7 +109,7 @@ export const trueFalseSchema = {
                         type: 'array',
                         items: { type: 'string' },
                         minItems: 2,
-                        maxItems: 2
+                        maxItems: 4
                     },
                     correctAnswer: { type: 'string' },
                     explanation: { type: 'string' }

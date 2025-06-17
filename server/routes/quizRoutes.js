@@ -4,7 +4,7 @@ import { getQuizzes, getQuizById, getSharedQuiz, createQuiz, cloneQuiz, updateQu
 
 const quizRouter = express.Router();
 
-quizRouter.get('/', userAuth, getQuizzes );
+quizRouter.get('/', userAuth, getQuizzes);
 quizRouter.get('/:id', userAuth, getQuizById );
 quizRouter.get('/shared/:token', userAuth, getSharedQuiz);
 

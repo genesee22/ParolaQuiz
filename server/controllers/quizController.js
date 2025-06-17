@@ -103,20 +103,16 @@ export const createQuiz = async (req, res) => {
         
         let generatedQuiz = await chat.sendMessage({
             message: 
-                `Language: ${settings.language} 
+                `Language: ${settings.language}
                 Type: ${settings.type}
                 Language Level: ${settings.languageLevel}
-                Style: ${settings.style}
                 Quantity: ${settings.quantity}
-
                 ${settings.questionsLength ? `Questions Length: ${settings.questionsLength}` : ''}
                 ${settings.optionsLength ? `Options Length: ${settings.optionsLength}` : ''}
                 ${settings.matchingsLength ? `Matchings Length: ${settings.matchingsLength}` : ''}
-                ${settings.inventedOptions ? `Invented Options: ${settings.inventedOptions}` : true}
-                ${settings.explanation ? `Explanation: ${settings.explanation}` : true}
-
+                ${settings.inventedOptions ? `Invented Options: ${settings.inventedOptions}` : ''}
+                ${settings.explanation ? `Explanation: ${settings.explanation}` : ''}
                 ${settings.userNotes ? `User Notes: ${settings.userNotes}` : ''}
-
                 Data: ${data}`
         });
         generatedQuiz = JSON.parse(generatedQuiz.text);
